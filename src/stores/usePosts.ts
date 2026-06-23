@@ -4,6 +4,7 @@ import {
   collection,
   getDocs,
   addDoc,
+  updateDoc,
   deleteDoc,
   doc,
   query,
@@ -40,14 +41,26 @@ export const usePostsStore = defineStore("posts", () => {
 
   const analyzedPosts = computed<AnalyzedPost[]>(() => {
     const base = rawPosts.value.map((post) => {
-      const saveRate =
-        post.reach > 0 ? ((post.saves / post.reach) * 100).toFixed(1) : "0.0";
-      const isViral = parseFloat(saveRate) >= 3.0;
-      const needsHookImprovement = post.retentionRate3s < 50;
-      const isHallOfFame =
-        parseFloat(saveRate) >= 3.0 && post.retentionRate3s >= 60;
+      const reachVal = Number(post.reach) || 0;
+      const savesVal = Number(post.saves) || 0;
+      const retentionVal = Number(post.retentionRate3s) || 0;
 
-      return { ...post, saveRate, isViral, needsHookImprovement, isHallOfFame };
+      const saveRate =
+        reachVal > 0 ? ((savesVal / reachVal) * 100).toFixed(1) : "0.0";
+      const isViral = parseFloat(saveRate) >= 3.0;
+      const needsHookImprovement = retentionVal < 50;
+      const isHallOfFame = parseFloat(saveRate) >= 3.0 && retentionVal >= 60;
+
+      return {
+        ...post,
+        reach: reachVal,
+        saves: savesVal,
+        retentionRate3s: retentionVal,
+        saveRate,
+        isViral,
+        needsHookImprovement,
+        isHallOfFame,
+      };
     });
 
     if (currentSort.value === "reach") {
@@ -83,7 +96,6 @@ export const usePostsStore = defineStore("posts", () => {
         )
         .join("\n");
 
-      // ✨ 「クリエイター」全般に向けたプロンプトに変更
       const prompt = `あなたはSNSを何人もバズらせてきた天才マーケターです。
 以下は、あるSNSクリエイターのこれまでの全投稿データ（インサイト数値）です。
 これらのデータをマクロに分析し、次にどんな【ターゲット層 × ハッシュタグ × BGM】の組み合わせで動画を作れば確実に大ヒット（バズ・高保存率）するかをガチで予測してください。
@@ -164,6 +176,26 @@ ${dataSummary}`;
     }
   };
 
+  // ✨ 追加：投稿を上書き更新する機能
+  const updatePost = async (
+    docId: string,
+    localId: number,
+    updatedData: Partial<Post>,
+  ) => {
+    try {
+      await updateDoc(doc(db, "posts", docId), updatedData);
+      // ローカルのデータも更新する
+      const index = rawPosts.value.findIndex((p) => p.id === localId);
+      if (index !== -1) {
+        rawPosts.value[index] = { ...rawPosts.value[index], ...updatedData };
+      }
+      analyzeAllPostsViaAI();
+    } catch (error) {
+      console.error("更新失敗:", error);
+      alert("データの更新に失敗しました。");
+    }
+  };
+
   const deletePost = async (docId: string | undefined, localId: number) => {
     if (!docId) {
       rawPosts.value = rawPosts.value.filter((p) => p.id !== localId);
@@ -195,6 +227,7 @@ ${dataSummary}`;
     currentSort,
     fetchPosts,
     addPost,
+    updatePost,
     deletePost,
     isLoading,
   };

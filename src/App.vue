@@ -97,7 +97,7 @@
             @click="activeTab = 'settings'"
             class="w-full bg-gradient-to-r from-pink-500 to-violet-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-pink-500/20 active:scale-95 transition-all text-sm"
           >
-            Googleログイン
+            無料で使い始める (Googleログイン)
           </button>
         </div>
 
@@ -132,7 +132,8 @@
             </div>
           </div>
 
-          <PostList :posts="analyzedPosts" />
+          <!-- ✨ @edit イベントを受け取ってモーダルを開くようにする -->
+          <PostList :posts="analyzedPosts" @edit="openEditModal" />
         </div>
 
         <div v-else-if="activeTab === 'analytics'" class="space-y-6">
@@ -148,18 +149,21 @@
 
     <BottomNav :activeTab="activeTab" @update:activeTab="activeTab = $event" />
 
+    <!-- 新規追加ボタン -->
     <button
       v-if="currentUser && (activeTab === 'home' || activeTab === 'analytics')"
-      @click="isModalOpen = true"
+      @click="openNewModal"
       class="fixed bottom-20 right-6 w-14 h-14 bg-gradient-to-r from-pink-500 to-violet-500 rounded-full flex items-center justify-center shadow-lg shadow-pink-500/40 text-white hover:scale-105 active:scale-95 transition-all z-40"
     >
       <Plus class="w-6 h-6" />
     </button>
 
+    <!-- ✨ editingPost を渡す -->
     <AddPostModal
       :isOpen="isModalOpen"
+      :editingPost="editingPost"
       @close="isModalOpen = false"
-      @submit="handleNewPost"
+      @submit="handlePostSubmit"
     />
   </div>
 </template>
@@ -180,10 +184,14 @@ import PostList from "./components/PostList/PostList.vue";
 import SettingsTab from "./components/SettingsTab/SettingsTab.vue";
 import BottomNav from "./components/BottomNav/BottomNav.vue";
 import AddPostModal from "./components/AddPostModal/AddPostModal.vue";
+import type { AnalyzedPost } from "./types";
 
 const activeTab = ref<"home" | "analytics" | "settings">("home");
 const isModalOpen = ref(false);
 const currentUser = ref<User | null>(null);
+
+// ✨ 編集中のデータを保持する変数
+const editingPost = ref<AnalyzedPost | null>(null);
 
 const postStore = usePostsStore();
 const { analyzedPosts, hallOfFamePosts, isLoading } = storeToRefs(postStore);
@@ -199,8 +207,27 @@ onMounted(() => {
   });
 });
 
-const handleNewPost = async (data: any) => {
-  await postStore.addPost(data);
+// ✨ 新規追加でモーダルを開く
+const openNewModal = () => {
+  editingPost.value = null; // 編集データをクリア
+  isModalOpen.value = true;
+};
+
+// ✨ 編集でモーダルを開く
+const openEditModal = (post: AnalyzedPost) => {
+  editingPost.value = post; // 編集データをセット
+  isModalOpen.value = true;
+};
+
+// ✨ 送信時の処理（新規か更新かを自動判別）
+const handlePostSubmit = async (data: any) => {
+  if (editingPost.value && data.docId) {
+    // 編集モード：FirestoreとStoreを更新
+    await postStore.updatePost(data.docId, data.id, data);
+  } else {
+    // 新規追加モード
+    await postStore.addPost(data);
+  }
   isModalOpen.value = false;
 };
 </script>

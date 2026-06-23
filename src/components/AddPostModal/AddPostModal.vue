@@ -18,7 +18,10 @@
       </div>
 
       <div class="flex justify-between items-center mb-5">
-        <h2 class="text-lg font-bold text-white">新規データの追加</h2>
+        <!-- ✨ 編集モードか新規追加モードかでタイトルを出し分ける -->
+        <h2 class="text-lg font-bold text-white">
+          {{ isEditMode ? "投稿データの編集" : "新規データの追加" }}
+        </h2>
         <button
           @click="$emit('close')"
           class="text-slate-400 hover:text-white font-bold p-2"
@@ -27,7 +30,8 @@
         </button>
       </div>
 
-      <div class="mb-4">
+      <!-- 編集モードの時は画像アップロードを隠す（数字だけいじる想定） -->
+      <div v-if="!isEditMode" class="mb-4">
         <label
           class="flex flex-col items-center justify-center w-full h-20 border-2 border-dashed border-indigo-500/50 rounded-xl cursor-pointer bg-indigo-900/20 hover:bg-indigo-900/40 transition-colors"
         >
@@ -156,11 +160,12 @@
           />
         </div>
 
+        <!-- ✨ ボタンのテキストも変更 -->
         <button
           type="submit"
           class="w-full bg-gradient-to-r from-pink-500 to-violet-500 text-white font-bold py-3.5 rounded-xl mt-6 shadow-lg shadow-pink-500/20 active:scale-95 transition-transform"
         >
-          データを追加する
+          {{ isEditMode ? "数値を更新する" : "データを追加する" }}
         </button>
       </form>
     </div>
@@ -168,11 +173,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch, computed } from "vue";
 import { getGenerativeModel } from "firebase/ai";
 import { ai } from "../../firebase";
 
-defineProps<{ isOpen: boolean }>();
+const props = defineProps<{
+  isOpen: boolean;
+  editingPost?: any; // ✨ 親から「今編集しようとしてるデータ」をもらう
+}>();
+
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "submit", data: any): void;
@@ -190,6 +199,35 @@ const formData = ref({
   bgm: "",
   persona: "",
 });
+
+// ✨ 編集モードかどうかを判定
+const isEditMode = computed(() => !!props.editingPost);
+
+// ✨ モーダルが開かれた時、編集データがあれば中身をセットする
+watch(
+  () => props.isOpen,
+  (newVal) => {
+    if (newVal) {
+      if (props.editingPost) {
+        formData.value = { ...props.editingPost };
+        tagString.value = props.editingPost.tags
+          ? props.editingPost.tags.join(", ")
+          : "";
+      } else {
+        formData.value = {
+          title: "",
+          reach: 0,
+          likes: 0,
+          saves: 0,
+          retentionRate3s: 0,
+          bgm: "",
+          persona: "",
+        };
+        tagString.value = "";
+      }
+    }
+  },
+);
 
 const generateTitle = async () => {
   if (!tagString.value) {
@@ -258,18 +296,12 @@ const submitPost = () => {
     .split(",")
     .map((t) => t.trim())
     .filter((t) => t);
-  emit("submit", { ...formData.value, tags });
-
-  formData.value = {
-    title: "",
-    reach: 0,
-    likes: 0,
-    saves: 0,
-    retentionRate3s: 0,
-    bgm: "",
-    persona: "",
-  };
-  tagString.value = "";
+  // ✨ 編集モードの時は、元のIDなどの情報も一緒に親へ返す
+  if (isEditMode.value) {
+    emit("submit", { ...props.editingPost, ...formData.value, tags });
+  } else {
+    emit("submit", { ...formData.value, tags });
+  }
 };
 </script>
 

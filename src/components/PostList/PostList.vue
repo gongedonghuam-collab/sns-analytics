@@ -90,46 +90,62 @@
             {{ post.title }}
           </h3>
 
-          <div class="flex items-center gap-2 shrink-0">
-            <span
-              v-if="post.isHallOfFame"
-              class="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-1 rounded-full font-bold border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)] flex items-center gap-1"
+          <div
+            class="flex items-center gap-1 shrink-0 bg-slate-900/50 rounded-lg p-1 border border-slate-700"
+          >
+            <!-- ✨ 編集ボタンを追加 -->
+            <button
+              @click="$emit('edit', post)"
+              class="text-slate-400 hover:text-emerald-400 transition-colors p-1.5 rounded-md hover:bg-slate-800"
+              title="数値を編集"
             >
-              👑 殿堂入り
-            </span>
-            <span
-              v-else-if="post.isViral"
-              class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-1 rounded-full font-bold border border-emerald-500/30"
-            >
-              🔥 バズ
-            </span>
-
+              <Pencil class="w-3.5 h-3.5" />
+            </button>
+            <div class="w-[1px] h-4 bg-slate-700"></div>
+            <!-- 既存の削除ボタン -->
             <button
               @click="postStore.deletePost(post.docId, post.id)"
-              class="text-slate-500 hover:text-red-400 transition-colors p-1"
+              class="text-slate-400 hover:text-red-400 transition-colors p-1.5 rounded-md hover:bg-slate-800"
               title="削除"
             >
-              <Trash2 class="w-4 h-4" />
+              <Trash2 class="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
+        <div class="flex gap-2 mb-3 relative z-10">
+          <span
+            v-if="post.isHallOfFame"
+            class="bg-amber-500/20 text-amber-400 text-[10px] px-2 py-0.5 rounded-full font-bold border border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)] flex items-center gap-1"
+          >
+            👑 殿堂入り
+          </span>
+          <span
+            v-else-if="post.isViral"
+            class="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-bold border border-emerald-500/30"
+          >
+            🔥 バズ
+          </span>
+        </div>
+
         <div class="flex flex-wrap gap-1.5 mb-3 relative z-10">
           <span
-            v-if="post.persona"
+            v-if="post.persona && String(post.persona).trim().length > 0"
             class="text-[10px] bg-pink-900/40 text-pink-300 border border-pink-500/20 px-2 py-0.5 rounded-md break-all"
           >
             🎯 {{ post.persona }}
           </span>
           <span
-            v-for="tag in post.tags"
+            v-for="tag in (post.tags || []).filter(
+              (t) => String(t).trim().length > 0,
+            )"
             :key="tag"
             class="text-[10px] bg-slate-700 text-slate-300 px-2 py-0.5 rounded-md break-all"
           >
             {{ tag }}
           </span>
           <span
-            v-if="post.bgm"
+            v-if="post.bgm && String(post.bgm).trim().length > 0"
             class="text-[10px] bg-indigo-900/50 text-indigo-300 px-2 py-0.5 rounded-md flex items-center gap-1 break-all"
           >
             🎵 {{ post.bgm }}
@@ -152,13 +168,13 @@
           <div>
             <p class="text-slate-500 text-[9px]">リーチ</p>
             <p class="font-bold text-slate-200 mt-0.5">
-              {{ post.reach.toLocaleString() }}
+              {{ Number(post.reach).toLocaleString() }}
             </p>
           </div>
           <div>
             <p class="text-slate-500 text-[9px]">いいね</p>
             <p class="font-bold text-slate-200 mt-0.5">
-              {{ post.likes.toLocaleString() }}
+              {{ Number(post.likes).toLocaleString() }}
             </p>
           </div>
           <div>
@@ -182,7 +198,7 @@
                     : 'text-slate-200'
               "
             >
-              {{ post.retentionRate3s }}%
+              {{ Number(post.retentionRate3s) }}%
             </p>
           </div>
         </div>
@@ -192,10 +208,14 @@
 </template>
 
 <script setup lang="ts">
-import { Trash2 } from "lucide-vue-next";
+// ✨ Pencil を追加インポート
+import { Trash2, Pencil } from "lucide-vue-next";
 import { usePostsStore } from "../../stores/usePosts";
 import type { AnalyzedPost } from "../../types";
 
 defineProps<{ posts: AnalyzedPost[] }>();
+// ✨ 親コンポーネント（App.vue）へ「編集ボタン押されたよ」と通知する
+defineEmits<{ (e: "edit", post: AnalyzedPost): void }>();
+
 const postStore = usePostsStore();
 </script>
